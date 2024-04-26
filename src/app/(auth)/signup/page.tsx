@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import { z } from "zod";
-import { useDebounceValue } from "usehooks-ts";
+import { useDebounceCallback } from "usehooks-ts";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ const page = () => {
   const [userNameMessage, setUserNameMessage] = useState("");
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const debouncedUsername = useDebounceValue(username, 400);
+  const debounce = useDebounceCallback(setUsername, 400);
   const { toast } = useToast();
   const router = useRouter();
   const form = useForm<z.infer<typeof signUpSchema>>({
@@ -41,12 +41,12 @@ const page = () => {
   });
   useEffect(() => {
     const checkUserNameUnique = async () => {
-      if (debouncedUsername) {
+      if (username) {
         setIsCheckingUsername(true);
         setUserNameMessage("");
         try {
           const response = await axios.get<ApiResponse>(
-            `/api/check-username-unique?username=${debouncedUsername}`
+            `/api/check-username-unique?username=${username}`
           );
           setUserNameMessage(response.data.message);
         } catch (error) {
@@ -60,7 +60,7 @@ const page = () => {
       }
     };
     checkUserNameUnique();
-  }, [debouncedUsername]);
+  }, [username]);
 
   const onSubmit = async (data: z.infer<typeof signUpSchema>) => {
     setIsSubmitting(true);
@@ -108,10 +108,22 @@ const page = () => {
                       {...field}
                       onChange={(e) => {
                         field.onChange(e);
-                        setUsername(e.target.value);
+                        debounce(e.target.value);
                       }}
                     />
                   </FormControl>
+                  {isCheckingUsername && <Loader2 className="animate-spin" />}
+                  {!isCheckingUsername && userNameMessage && (
+                    <p
+                      className={`text-sm ${
+                        userNameMessage === "Username is unique"
+                          ? "text-green-500"
+                          : "text-red-500"
+                      }`}
+                    >
+                      {userNameMessage}
+                    </p>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
